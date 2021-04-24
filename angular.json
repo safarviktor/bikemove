@@ -120,5 +120,8 @@
       }
     }
   },
-  "defaultProject": "bikemove"
+  "defaultProject": "bikemove",
+  "cli": {
+    "analytics": false
+  }
 }
