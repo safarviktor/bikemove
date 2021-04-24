@@ -2,6 +2,7 @@ import { Component, OnInit, ViewChild } from '@angular/core';
 import { BikedataService } from '../bikedata.service';
 import { Trip } from '../models';
 import {} from 'google.maps';
+import {MatProgressBarModule} from '@angular/material/progress-bar';
 
 @Component({
   selector: 'app-movemap',
@@ -11,6 +12,7 @@ import {} from 'google.maps';
 export class MovemapComponent implements OnInit {
 
   constructor(private bikeDataService: BikedataService) { }
+  
   
   @ViewChild('map') mapElement: any;
   map: google.maps.Map;
