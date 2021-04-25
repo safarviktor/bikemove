@@ -5,6 +5,7 @@ import { AppComponent } from './app.component';
 import { MovemapComponent } from './movemap/movemap.component';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
+import { FlexLayoutModule } from '@angular/flex-layout';
 
 @NgModule({
   declarations: [
@@ -15,7 +16,8 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
     BrowserModule,
     HttpClientModule,
     BrowserAnimationsModule,
-    MatProgressBarModule
+    MatProgressBarModule,
+    FlexLayoutModule 
   ],
   providers: [],
   bootstrap: [AppComponent]

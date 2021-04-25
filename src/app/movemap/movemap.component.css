@@ -1,0 +1,9 @@
+.container {
+    display: flex; /* or inline-flex */
+  }
+
+  .item {
+    margin-right: auto;
+    border-left: 1px solid red;
+    height: 30px;
+  }

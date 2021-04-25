@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, ViewChild } from '@angular/core';
 import { BikedataService } from '../bikedata.service';
 import { Trip } from '../models';
 import {} from 'google.maps';
@@ -11,12 +11,18 @@ import {MatProgressBarModule} from '@angular/material/progress-bar';
 })
 export class MovemapComponent implements OnInit {
 
-  constructor(private bikeDataService: BikedataService) { }
+  constructor(
+    private bikeDataService: BikedataService) { }
   
-  
+
   @ViewChild('map') mapElement: any;
   map: google.maps.Map;
   trips: Trip[];
+  hours: Date[] = [];
+  timeOfDay: Date;
+  clockInterval: any;
+  timeProgress: number = 0;
+  minutesInADay: number = 24 * 60;
 
   ngAfterViewInit() {
 
@@ -24,11 +30,21 @@ export class MovemapComponent implements OnInit {
       {
         this.trips = data;
         this.initMap();
-        this.animate();
+        this.runClock();
+        this.animate();        
       });
   } 
   
   ngOnInit(): void {
+    for (let index = 0; index < 24; index++) {
+      this.hours.push(new Date(2000, 1, 1, index));
+    }
+
+    this.timeOfDay = new Date(2000, 1, 1);
+  }
+
+  ngOnDestroy() {
+    clearInterval(this.clockInterval);
   }
 
   animate(): void {
@@ -76,6 +92,18 @@ export class MovemapComponent implements OnInit {
     };
     this.map = new google.maps.Map(this.mapElement.nativeElement, mapProperties);
   }
+
+  runClock() : void
+  {
+    console.log("starting clock");
+    this.clockInterval = setInterval(() => {
+      this.timeOfDay.setMinutes(this.timeOfDay.getMinutes() + 10);
+      let elapsedMinutes = this.timeOfDay.getHours() * 60 + this.timeOfDay.getMinutes();
+      this.timeProgress = elapsedMinutes / this.minutesInADay * 100;
+      console.log(this.timeProgress);
+    },
+    1000);
+  }
 }
 
 
@@ -85,7 +113,7 @@ function animateCircle(line: google.maps.Polyline, durationSeconds: number) {
   let refreshIntervalMs = 100;
   let oneSecondMs = 1000;
   let speedUpFactor = 100;
-  let hundredPercent = 100;
+  const hundredPercent = 100;
   
   let offsetPercent = 0;
   console.log(durationSeconds);
