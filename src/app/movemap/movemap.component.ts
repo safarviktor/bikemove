@@ -18,50 +18,66 @@ export class MovemapComponent implements OnInit {
   @ViewChild('map') mapElement: any;
   map: google.maps.Map;
   trips: Trip[];
+  runningTripIds: number[];
   hours: Date[] = [];
   timeOfDay: Date;
   clockInterval: any;
   timeProgress: number = 0;
   minutesInADay: number = 24 * 60;
+  clockTickMs: number = 100;
+  tripStartOffsets: number[];
 
   ngAfterViewInit() {
 
     this.bikeDataService.getTrips().subscribe(data => 
       {
-        this.trips = data;
+        this.trips = data; //.slice(0, 10);
+
+        // to make GMaps remove the symbol after the trip end for same-same station trip, move the end slighly
+        this.trips.filter(t => t.startStationName == t.endStationName).forEach(t => t.endLatitude = t.endLatitude + 0.00001);               
+
+        // replace this with date selection
+        this.timeOfDay = new Date(2021, 0, 1, 5);
+        
+        this.runningTripIds = [];
+        this.tripStartOffsets = this.trips.map(t => {
+          const startedAt = new Date(t.startedAt);
+          const startedInMInutesOfDay = startedAt.getHours() * 60 + startedAt.getMinutes();
+          const offset = startedInMInutesOfDay / this.minutesInADay;
+          return offset;
+        });
+
         this.initMap();
         this.runClock();
-        this.animate();        
       });
   } 
   
   ngOnInit(): void {
     for (let index = 0; index < 24; index++) {
-      this.hours.push(new Date(2000, 1, 1, index));
-    }
-
-    this.timeOfDay = new Date(2000, 1, 1);
+      this.hours.push(new Date(2000, 0, 1, index));
+    }    
   }
 
   ngOnDestroy() {
     clearInterval(this.clockInterval);
   }
 
-  animate(): void {
-    // Define the symbol, using one of the predefined paths ('CIRCLE')
-    // supplied by the Google Maps JavaScript API.
+  animate(currentTrips: Trip[]): void {
+    
     const lineSymbol = {
       path: google.maps.SymbolPath.CIRCLE,
-      scale: 2,
-      strokeColor: "cyan",
+      scale: 5,
+      strokeColor: "red"
     };
 
-    this.trips.splice(0,1).forEach(currentTrip => {
-  
-        console.log(currentTrip.startedAt);
-        console.log(currentTrip.endedAt);
-        // Create the polyline and add the symbol to it via the 'icons' property.
-        const line = new google.maps.Polyline({
+    currentTrips.forEach(currentTrip => {
+
+      // console.log("starting trip");
+      // console.log(currentTrip.startedAt);
+      // console.log(currentTrip.endedAt);
+      
+      // Create the polyline and add the symbol to it via the 'icons' property.
+      const line = new google.maps.Polyline({
         path: [
           { lat: currentTrip.startLatitude, lng: currentTrip.startLongitude },
           { lat: currentTrip.endLatitude, lng: currentTrip.endLongitude },
@@ -78,7 +94,7 @@ export class MovemapComponent implements OnInit {
         map: this.map,
       });
 
-      animateCircle(line, currentTrip.durationSeconds);
+      this.animateCircle(line, currentTrip.durationSeconds);
     });
 
     
@@ -97,38 +113,46 @@ export class MovemapComponent implements OnInit {
   {
     console.log("starting clock");
     this.clockInterval = setInterval(() => {
-      this.timeOfDay.setMinutes(this.timeOfDay.getMinutes() + 10);
+      this.timeOfDay.setMinutes(this.timeOfDay.getMinutes() + 1);
+
+      let tripsToStart = this.trips.filter(t => new Date(t.startedAt) <= this.timeOfDay && !this.runningTripIds.includes(t.id));
+      this.animate(tripsToStart);
+      this.runningTripIds = this.runningTripIds.concat(tripsToStart.map(t => t.id));
+
       let elapsedMinutes = this.timeOfDay.getHours() * 60 + this.timeOfDay.getMinutes();
       this.timeProgress = elapsedMinutes / this.minutesInADay * 100;
-      console.log(this.timeProgress);
+      
     },
-    1000);
+    this.clockTickMs);
   }
-}
 
-
-  // Use the DOM setInterval() function to change the offset of the symbol
-// at fixed intervals.
-function animateCircle(line: google.maps.Polyline, durationSeconds: number) {
-  let refreshIntervalMs = 100;
-  let oneSecondMs = 1000;
-  let speedUpFactor = 100;
-  const hundredPercent = 100;
+  animateCircle(line: google.maps.Polyline, durationSeconds: number) {
+    let refreshIntervalMs = 50;
+    const hundredPercent = 100;    
+    let offsetPercent = 0; 
   
-  let offsetPercent = 0;
-  console.log(durationSeconds);
+    var thisInterval = window.setInterval(() => {
 
-  var thisInterval = window.setInterval(() => {
-    if (offsetPercent >= hundredPercent)
-    {
-      window.clearInterval(thisInterval);
-    }
+      // console.log(this.timeOfDay);
+      // console.log(`offsetPercent: ${offsetPercent}`);
+      
+      //debugger;
 
-    const icons = line.get("icons");
-    icons[0].offset = offsetPercent + "%";
-    line.set("icons", icons);
+      if (offsetPercent >= hundredPercent)
+      {
+        window.clearInterval(thisInterval);
+      }
+  
+      const icons = line.get("icons");
+      icons[0].offset = offsetPercent + "%";
+      line.set("icons", icons);
 
-    offsetPercent = offsetPercent + (oneSecondMs / refreshIntervalMs) / durationSeconds * speedUpFactor;
-    
-  }, refreshIntervalMs);
+      // provided the refresh run in sync with the clock, 
+      // every clock tick is 1 minute, so we need to move 1 minute (60 seconds) into the trip
+      offsetPercent = offsetPercent 
+        + (60 / durationSeconds / (this.clockTickMs / refreshIntervalMs)) * 100 ; // because percent
+      
+    }, refreshIntervalMs);
+  }
+
 }

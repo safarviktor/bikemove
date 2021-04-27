@@ -4,7 +4,20 @@
     </div>
 </div>
 
-<mat-progress-bar mode="determinate" [value]="timeProgress" style="width:100%; height:20px">
+<mat-progress-bar mode="determinate" [value]="timeProgress" style="width:100%; height:20px;">
 </mat-progress-bar>
 
-<div #map style="width:100%;height:600px"></div>
+<div style="position: relative; top: -20px;">
+    
+    <div style="height: 20px; width: 100%; ">
+        <span *ngFor="let tripStart of tripStartOffsets" 
+            style="color: red; position: absolute;" 
+            [style.left]="tripStart * 100 + '%'"
+        >|</span>
+    </div>
+
+
+    <div #map style="width:100%; height:800px;"></div>
+</div>
+
+
