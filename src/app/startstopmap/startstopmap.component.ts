@@ -3,20 +3,23 @@ import { BikedataService } from '../bikedata.service';
 import { Trip } from '../models';
 import {} from 'google.maps';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
+import { interval } from 'rxjs';
 
 @Component({
-  selector: 'app-movemap',
-  templateUrl: './movemap.component.html',
-  styleUrls: ['./movemap.component.css']
+  selector: 'app-startstopmap',
+  templateUrl: './startstopmap.component.html',
+  styleUrls: ['./startstopmap.component.css']
 })
-export class MovemapComponent implements OnInit {
+export class StartstopmapComponent implements OnInit {
 
+  
   constructor(
     private bikeDataService: BikedataService) { }
   
 
   @ViewChild('map') mapElement: any;
   map: google.maps.Map;
+  markers: google.maps.Marker[] = [];
   trips: Trip[];
   runningTripIds: number[];
   hours: Date[] = [];
@@ -24,21 +27,19 @@ export class MovemapComponent implements OnInit {
   clockInterval: any;
   timeProgress: number = 0;
   minutesInADay: number = 24 * 60;
-  clockTickMs: number = 100;
+  clockTickMs: number = 200;
   tripStartOffsets: number[];
 
   ngAfterViewInit() {
 
-    this.bikeDataService.getTrips(new Date(2020, 2, 18)).subscribe(data => 
+    let d = new Date(2020, 2, 18);
+
+    this.bikeDataService.getTrips(d).subscribe(data => 
       {
         this.trips = data; //.slice(0, 10);
 
-        // to make GMaps remove the symbol after the trip end for same-same station trip, move the end slighly
-        this.trips.filter(t => t.startStationName == t.endStationName).forEach(t => t.endLatitude = t.endLatitude + 0.00001);               
-
         // replace this with date selection
-        this.timeOfDay = new Date(2021, 0, 1, 5);
-        
+        this.timeOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 6);
         this.runningTripIds = [];
         this.tripStartOffsets = this.trips.map(t => {
           const startedAt = new Date(t.startedAt);
@@ -46,7 +47,7 @@ export class MovemapComponent implements OnInit {
           const offset = startedInMInutesOfDay / this.minutesInADay;
           return offset;
         });
-
+        
         this.initMap();
         this.runClock();
       });
@@ -99,7 +100,50 @@ export class MovemapComponent implements OnInit {
 
     
   }  
-  
+
+  endTrips(tripsToEnd: Trip[]) : google.maps.Marker[]  {
+    let addedMarkers: google.maps.Marker[] = [];
+
+    const icon = {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 5,
+      strokeColor: "red"
+    };
+
+    tripsToEnd.forEach(currentTrip => {
+      let marker = this.addMarker(currentTrip.endLatitude, currentTrip.endLongitude, icon)  
+      addedMarkers.push(marker);
+    });   
+
+    return addedMarkers;
+  }
+
+  startTrips(tripsToStart: Trip[]) : google.maps.Marker[]  {
+    let addedMarkers: google.maps.Marker[] = [];
+
+    const icon = {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 5,
+      strokeColor: "cyan"
+    };
+
+    tripsToStart.forEach(currentTrip => {
+      let marker = this.addMarker(currentTrip.startLatitude, currentTrip.startLongitude, icon)  
+      addedMarkers.push(marker);
+    });  
+    
+    return addedMarkers;
+  }
+
+  addMarker(lat: number, lon: number, icon: any) : google.maps.Marker {
+    return new google.maps.Marker({
+      position: new google.maps.LatLng(lat, lon),
+      map: this.map,
+      icon: icon
+    });
+  }
+
+
   initMap(): void {
     const mapProperties = {
       center: new google.maps.LatLng(this.trips[0].startLatitude, this.trips[0].startLongitude),
@@ -112,12 +156,42 @@ export class MovemapComponent implements OnInit {
   runClock() : void
   {
     console.log("starting clock");
+    const minutesPerClockTick: number = 1;
     this.clockInterval = setInterval(() => {
-      this.timeOfDay.setMinutes(this.timeOfDay.getMinutes() + 1);
+      this.timeOfDay.setMinutes(this.timeOfDay.getMinutes() + minutesPerClockTick);
 
-      let tripsToStart = this.trips.filter(t => new Date(t.startedAt) <= this.timeOfDay && !this.runningTripIds.includes(t.id));
-      this.animate(tripsToStart);
-      this.runningTripIds = this.runningTripIds.concat(tripsToStart.map(t => t.id));
+      let newMarkers: google.maps.Marker[] = [];
+            
+      let minuteAgo = new Date(
+        this.timeOfDay.getFullYear(), 
+        this.timeOfDay.getMonth(), 
+        this.timeOfDay.getDate(), 
+        this.timeOfDay.getHours(), 
+        this.timeOfDay.getMinutes() - minutesPerClockTick);
+      
+      let tripsToStart = this.trips.filter(t => {
+        let startDate = new Date(t.startedAt);
+        return startDate <= this.timeOfDay && startDate > minuteAgo;
+      });      
+      newMarkers = newMarkers.concat(this.startTrips(tripsToStart));
+      
+      let tripsToEnd = this.trips.filter(t => {
+        let endDate = new Date(t.endedAt);
+        return endDate <= this.timeOfDay && endDate > minuteAgo;        
+      });
+      newMarkers = newMarkers.concat(this.endTrips(tripsToEnd));      
+
+      if (newMarkers.length > 0)
+      {
+        setInterval((toRemove) => {
+          // clear the markers from the map
+          toRemove.forEach(m => {
+            m.setMap(null);
+          });
+          // remove them from memory
+          toRemove = [];                
+        }, 1000, newMarkers);
+      }
 
       let elapsedMinutes = this.timeOfDay.getHours() * 60 + this.timeOfDay.getMinutes();
       this.timeProgress = elapsedMinutes / this.minutesInADay * 100;

@@ -6,11 +6,13 @@ import { MovemapComponent } from './movemap/movemap.component';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import {MatProgressBarModule} from '@angular/material/progress-bar';
 import { FlexLayoutModule } from '@angular/flex-layout';
+import { StartstopmapComponent } from './startstopmap/startstopmap.component';
 
 @NgModule({
   declarations: [
     AppComponent,
-    MovemapComponent
+    MovemapComponent,
+    StartstopmapComponent
   ],
   imports: [
     BrowserModule,
